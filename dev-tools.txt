@@ -25,5 +25,359 @@ GET _cat/allocation?v&h=shards,disk.percent,node
 GET bank/_count
 GET bank/_search
 
+# Jour 1 - après midi
+
+GET _sql
+{
+    "query": """
+    SELECT * FROM "bank"
+    """
+}
+
+# Création d'un index
+GET pizzas
+PUT pizzas
+{
+    "settings": {
+        "index.number_of_shards": 3,
+        "number_of_replicas": 1
+    }
+}
+
+# création auto de l'id
+POST pizzas/_doc
+{
+    "name" : "pizza pates",
+    "price" : 11.5
+}
+# maitrise de l'id
+PUT pizzas/_doc/12345
+{
+    "name" : "chorizo",
+    "price" : 10
+}
+
+# lecture
+GET pizzas/_doc/12345
+GET pizzas/_source/12345
+GET pizzas/_source/123456
+
+# updates
+PUT pizzas/_doc/12345
+{
+    "name" : "chorizo",
+    "price" : 11
+}
+# updates partielles
+POST pizzas/_update/12345
+{
+    "doc": {
+        "name" : "Chorizo"
+    }
+}
+
+POST pizzas/_update/12345
+{
+   "script": {
+    "source": "ctx._source.price += 1;"
+   }
+}
+
+DELETE pizzas/_doc/12345
+DELETE pizzas
+
+GET pizzas/_search
+
+GET pizzas/_search
+{
+    "query": {
+        "term": {
+          "price": {
+            "value": 11
+          }
+        }
+    }
+}
+
+# range < <= > >=
+GET pizzas/_search
+{
+    "query": {
+        "range": {
+          "price": {
+            "gte": 10,
+            "lte" : 20
+          }
+        }
+    }
+}
+
+
+
+
+
+# mappings
+
+GET pizzas
+
+POST pizzas/_doc
+{
+  "name": "saumon",
+  "price" : 12.50
+}
+
+GET pizzas/_search
+
+# dynamic mapping
+POST employes/_doc
+{
+    "name" : "alice",
+    "last_connection" : "2025-11-25T08:00:00",
+    "time" : 12.34
+}
+GET employes/_mapping
+
+
+GET bank/_mapping
+
+
+# Analyse
+# transformation string -> tableau de tokens
+# type text analysé
+GET _analyze?filter_path=**.token&format=yaml
+{
+    "text" : "880 Holmes Lane"
+}
+# type keyword : non analysé
+GET _analyze?filter_path=**.token&format=yaml
+{
+    "text" : "880 Holmes Lane",
+    "analyzer" : "keyword"
+}
+
+GET bank/_search
+
+
+
+POST factures/_bulk
+{"index":{}}
+{"code":"FACT-1234-CLIENT-A"}
+{"index":{}}
+{"code":"FACT-1234-CLIENT-B"}
+{"index":{}}
+{"code":"FACT-1234-CLIENT-C"}
+{"index":{}}
+{"code":"FACT-4321-CLIENT-A"}
+
+# json : code : "FACT-1234-CLIENT-A"
+# index : code [fact, 1234, client, a]
+# index : code.keyword "FACT-1234-CLIENT-A"
+
+# wildcard
+GET factures/_search
+{
+    "query": {
+        "wildcard": {
+          "code.keyword": {
+            "value": "*-????-*"
+          }
+        }
+    }
+}
+
+# prefix
+GET factures/_search
+{
+    "query": {
+        "prefix": {
+          "code.keyword": {
+            "value": "FACT-1234"
+          }
+        }
+    }
+}
+
+# regex
+GET factures/_search
+{
+    "query": {
+        "regexp": {
+          "code.keyword": "[A-Z]+-[\\d]+-.*"
+        }
+    }
+}
+
+
+# match analyse et compare
+GET factures/_search
+{
+    "query": {
+        "match": {
+          "code.keyword": "FACT-4321-CLIENT-A"
+        }
+    }
+}
+
+# term query, pas d'analyse
+GET factures/_search
+{
+    "query": {
+        "term": {
+          "code.keyword": {
+            "value": "FACT-1234-CLIENT-A"
+          }
+        }
+    }
+}
+
+
+POST test/_doc
+{
+    "c" : "ABE"
+}
+
+GET test/_search
+{
+    "query": {
+        "range": {
+          "c.keyword": {
+            "gte":"abc"
+          }
+        }
+    }
+}
+
+
+POST web/_doc
+{
+    "title" : "Le java c'est super",
+    "category" : "dev",
+    "sponso" : false,
+    "published_at" : "2025-01-15T12:00:00"
+}
+
+POST web/_doc
+{
+    "title" : "Venez decouvrire l'ile pradisiaque de Java",
+    "category" : "voyage",
+    "sponso" : true,
+    "published_at" : "2025-03-15T12:00:00"
+}
+
+POST web/_doc
+{
+    "title" : "Il fait un peu trop la Java et ça finit mal, cliquez ici pour lire la suite...",
+    "category" : "konbini",
+    "sponso" : true,
+    "published_at" : "2025-06-15T12:00:00"
+}
+
+
+GET web/_search
+{
+    "query": {
+        "match": {
+          "title": "java"
+        }
+    }
+}
+
+# bool query
+GET web/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match": {
+            "title": "java"
+          }
+        }
+      ],
+      "must_not": [],
+      "should": [
+        {
+            "term": {
+              "category": {
+                "value": "dev",
+                "boost": 1
+              }
+            }
+        },
+        {
+            "term": {
+              "category": {
+                "value": "voyage",
+                "boost": 10
+              }
+            }
+        },
+        {
+            "term": {
+              "sponso": {
+                "value": true,
+                "boost": 20
+              }
+            }
+        }
+      ],
+      "filter": [
+        {
+            "range": {
+              "published_at": {
+                "gte": "2025",
+                "lt": "2026"
+              }
+            }
+        }
+      ]
+    }
+  }
+}
+
+# -- mappings custom
+GET pizzas
+
+# text : analysé => cherchable
+# keyword non analysé => cherchable, sortable, aggregatable
+
+PUT pizzas-v2
+{
+    "mappings": {
+        "properties": {
+            "name": {
+                "type" : "keyword"
+            },
+            "price" : {
+                "type": "float"
+            }
+        }
+    }
+}
+
+# réindexation 
+POST _reindex
+{
+    "source": {
+        "index" : "pizzas"
+    },
+    "dest": {
+        "index" : "pizzas-v2"
+    }
+}
+
+GET pizzas-v2/_search
+{
+    "query": {
+        "term": {
+          "price": {
+            "value": 11.5
+          }
+        }
+    }
+}
+
+
+
 
 ```
