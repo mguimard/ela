@@ -1,0 +1,29 @@
+```
+# Jour 1 : matinée
+
+# Infos basiques
+GET /
+#     "number": "9.2.1",
+# "minimum_wire_compatibility_version": "8.19.0", (peut cohabiter avec)
+# "minimum_index_compatibility_version": "8.0.0" (peut lire les données insérées en 8.0.0)
+
+# santé du cluster
+GET _cluster/health
+
+# création index
+PUT fruits
+PUT legumes
+PUT voitures
+
+# chasse au gros shards
+GET _cat/shards?v&h=index,shard,node,store&s=store:desc
+
+# Répartition de la donnée
+GET _cat/allocation?v&h=shards,disk.percent,node
+
+# vérfication des données insérées
+GET bank/_count
+GET bank/_search
+
+
+```
