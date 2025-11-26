@@ -794,7 +794,223 @@ POST _ingest/pipeline/_simulate
 }
 
 
+# TP3 : pipelines
 
+## 1. Ecriture de la pipeline
+
+POST _ingest/pipeline/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "message": "2017-03-21T12:10:00+01:00;0087784009;Perpignan;76.0;11.0"
+      }
+    },
+    {
+      "_source": {
+        "message": "2017-03-21T12:34:00+01:00;0087582825;Saint-Macaire;21.0;0.0"
+      }
+    },
+    {
+      "_source": {
+        "message": ";0087582825;Saint-Macaire;21.0;0.0"
+      }
+    },
+    {
+      "_source": {
+        "message": "2017-03-21T12:34:00+01:00;0087582825;Saint-Macaire;;"
+      }
+    },
+    {
+      "_source": {
+        "message": "2017-03-21T12:34:00+01:00;0087582825;Saint-Macaire;0.0;0.0"
+      }
+    }
+  ],
+  "pipeline": {
+    "processors": [
+      {
+        "csv" : {
+          "field" : "message",
+          "separator": ";",
+          "target_fields": [
+            "@timestamp", "CodeGare", "Gare", "Observations", "Problemes"
+          ]
+        }
+      },
+      {
+        "drop" : {
+          "if": """
+            !ctx.containsKey('@timestamp') ||
+            !ctx.containsKey('Observations') ||
+            !ctx.containsKey('Problemes')
+            """
+        }
+      },
+      {
+        "convert" : {
+          "field" : "Observations",
+          "type" : "float"
+        }
+      },
+      {
+        "convert" : {
+          "field" : "Problemes",
+          "type" : "float"
+        }
+      },
+      {
+        "drop": {
+          "if" : "ctx['Observations'] <= 0 || ctx['Problemes'] < 0"
+        }
+      },
+      {
+        "script": {
+          "source" : """
+            ctx['TauxConformite'] = 100.0 * (1.0 - ctx['Problemes'] / ctx['Observations']);
+
+            ctx['Problemes'] = (long) ctx['Problemes'];
+            ctx['Observations'] = (long) ctx['Observations'];
+            """
+        }
+      },
+      {
+        "remove": {
+          "field": "message"
+        }
+      }
+    ]
+  }
+}
+
+PUT _ingest/pipeline/sncf-pipeline
+{
+  "description": "Parsing des données de non conformité",
+  "processors": [
+    {
+      "csv": {
+        "field": "message",
+        "separator": ";",
+        "target_fields": [
+          "@timestamp",
+          "CodeGare",
+          "Gare",
+          "Observations",
+          "Problemes"
+        ]
+      }
+    },
+    {
+      "drop": {
+        "if": """
+            !ctx.containsKey('@timestamp') ||
+            !ctx.containsKey('Observations') ||
+            !ctx.containsKey('Problemes')
+            """
+      }
+    },
+    {
+      "convert": {
+        "field": "Observations",
+        "type": "float"
+      }
+    },
+    {
+      "convert": {
+        "field": "Problemes",
+        "type": "float"
+      }
+    },
+    {
+      "drop": {
+        "if": "ctx['Observations'] <= 0 || ctx['Problemes'] < 0"
+      }
+    },
+    {
+      "script": {
+        "source": """
+            ctx['TauxConformite'] = 100.0 * (1.0 - ctx['Problemes'] / ctx['Observations']);
+
+            ctx['Problemes'] = (long) ctx['Problemes'];
+            ctx['Observations'] = (long) ctx['Observations'];
+            """
+      }
+    },
+    {
+      "remove": {
+        "field": "message"
+      }
+    }
+  ]
+}
+
+## 2. Préparation de l'index et des runtime fields
+DELETE sncf
+PUT sncf
+{
+  "mappings": {
+    "dynamic" : false,
+    "properties": {
+      "@timestamp" : {
+        "type" : "date"
+      },
+      "CodeGare" : {
+        "type" : "keyword",
+        "index" : false
+      },
+      "Observations" : {
+        "type" : "unsigned_long"
+      },
+      "Problemes" : {
+        "type" : "unsigned_long"
+      },
+      "Gare" : {
+        "type" : "keyword"
+      },
+      "TauxConformite" : {
+        "type" : "float"
+      }
+    }
+  }
+}
+
+GET _cat/indices/sncf?v&h=store.size
+
+PUT sncf/_mapping
+{
+  "runtime": {
+    "hour_of_day": {
+      "type": "double",
+      "script": {
+        "source": """
+        if(doc['@timestamp'].size()!=0 )
+          emit(doc['@timestamp'].value.getHour());
+        else
+          emit(0);
+        """
+      }
+    },
+    "day_of_week": {
+      "type": "keyword",
+      "script": {
+        "source": """
+        if(doc['@timestamp'].size() == 0)
+          emit('NA');
+        else
+        emit(doc['@timestamp'].value.dayOfWeekEnum.getDisplayName(TextStyle.FULL, Locale.ROOT));
+        """
+      }
+    }
+  }
+}
+
+## 3. configuration logstash
+
+## 4. Envoi des données, vérification
+GET sncf/_search
+GET sncf/_count
+
+## 5. Dashboard kibana
 
 
 ```
