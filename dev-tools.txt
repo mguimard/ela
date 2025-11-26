@@ -379,5 +379,323 @@ GET pizzas-v2/_search
 
 
 
+# Commandes utiles
+
+# Utilisation de filter path
+GET bank/_search
+GET bank/_search?filter_path=**.firstname
+
+# Version des noeuds
+GET _nodes?filter_path=nodes.*.version
+# Mémoire des noeuds (bytes)
+GET _nodes?filter_path=nodes.*.jvm.mem.heap_max_in_bytes
+
+# Liste index/documents
+GET _cat/indices?v&h=index,docs.count&s=docs.count:desc
+
+# ip/ram/cpu
+GET _cat/nodes?v&h=name,ip,heap.percent,cpu,master
+
+
+# type ip
+PUT mes-logs
+{
+  "mappings": {
+    "properties": {
+      "ip": {
+        "type": "ip"
+      }
+    }
+  }
+}
+
+POST mes-logs/_doc
+{
+  "ip" : "192.168.56.10"
+}
+
+GET mes-logs/_search
+{
+  "query": {
+    "term": {
+      "ip": {
+        "value": "192.168.1.1/16"
+      }
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+# TP2
+
+# 1. analyze mappings bank
+GET bank/_mapping
+
+# 2. création index bank2, mappings optimisés
+PUT bank3
+{
+  "mappings": {
+    "dynamic" : false,
+    "properties": {
+        "account_number" : {
+          "type" : "unsigned_long"
+        },
+        "address" : {
+          "type" : "text",
+          "fields" : {
+            "as_completion" : {
+              "type" : "completion"
+            }
+          }
+        },
+        "age" : {
+          "type":"unsigned_long"
+        },
+        "balance" : {
+          "type" : "float"
+        },
+        "city" : {
+          "type" : "keyword",
+          "fields" : {
+            "as_completion" : {
+              "type" : "completion"
+            }
+          }
+        },
+        "email" : {
+          "type": "keyword",
+          "index" : false
+        },
+        "employer" : {
+          "type" : "keyword"
+        },
+        "firstname" : {
+          "type" : "keyword"
+        },
+        "gender" : {
+          "type" : "keyword"
+        },
+        "lastname" : {
+          "type" : "keyword"
+        },
+        "state" : {
+          "type" : "keyword"
+        }
+    }
+  }
+}
+
+# 3. réindexation bank -> bank2
+POST _reindex
+{
+  "source" : {"index" : "bank"},
+  "dest" : {"index" : "bank3"} 
+}
+
+# 4. analyse de l'espace disque
+GET _cat/indices/bank*?v&h=index,store.size
+
+# 5. requêtes
+
+  # Comptes ayant "street" dans le champ adresse (match ou term)
+
+GET bank2/_search
+{
+  "query": {
+    "match": {
+      "address": "yo La StrEEt"
+    }
+  }
+}
+
+GET bank2/_search
+{
+  "query": {
+    "term": {
+      "address": {
+        "value": "street"
+      }
+    }
+  }
+}
+
+    # Comptes ayant plus de 25 ans (range)
+
+GET bank2/_search
+{
+  "query": {
+    "range": {
+      "age": {
+        "gte": 25
+      }
+    }
+  }
+}
+
+
+    # Comptes ayant entre 25000 dollars et 35000 dollars (range)
+
+GET bank2/_search
+{
+  "query": {
+    "range": {
+      "balance": {
+        "gte": 25000,
+        "lte": 35000
+      }
+    }
+  }
+}
+
+# Compte dont le prénom est "Rose" à quelques fautes près (fuzzy)
+GET bank2/_search?filter_path=**.firstname
+{
+  "query": {
+    "fuzzy": {
+      "firstname": {
+        "value": "Roes"
+      }
+    }
+  }
+}
+
+# Compte dont le prénom commence par "R" (prefix)
+GET bank2/_search
+{
+  "query": {
+    "prefix": {
+      "firstname": {
+        "value": "r",
+        "case_insensitive" : true
+      }
+    }
+  }
+}
+
+# Compte dont le prénom contient un "E" (wildcard)
+GET bank2/_search
+{
+  "query": {
+    "wildcard": {
+      "firstname": {
+        "value": "*e*",
+        "case_insensitive": true
+      }
+    }
+  }
+}
+
+# Rechercher les comptes dont l'age est inférieur à 25 ans et le compte en banque supérieur à 25000. Bonus : booster le score des comptes dont le genre est féminin.
+GET bank2/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "range": {
+            "age": {
+              "lte": 25
+            }
+          }
+        },
+        {
+          "range": {
+            "balance": {
+              "gte": 25000
+            }
+          }
+        }
+      ],
+      "should": [
+        {
+          "term": {
+            "gender": {
+              "value": "F"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+
+# Réindexation + scripting
+DELETE bank-test
+POST _reindex
+{
+  "source": {
+    "index": "bank"
+  },
+  "dest": {
+    "index": "bank-test"
+  },
+  "script": {
+    "source": """
+      ctx._source.remove('account_number');
+      if(ctx._source.balance < 28000)
+        ctx._source.balance += 5000;
+      """
+  }
+}
+
+GET bank-test/_search
+
+
+
+
+GET bank/_search
+{
+  "aggs": {
+    "nombre_de_city_uniques": {
+      "cardinality": {
+        "field" : "city.keyword"
+      }
+    }
+  }
+}
+
+
+
+
+POST mes-super-logs/_doc
+{
+  "ip" : "1.2.3.4",
+  "userName1" : "alice",
+  "userName2" : "bob",
+  "time" : "2025-11-25T08:00:00"
+}
+
+
+POST mes-super-logs/_doc
+{
+  "server": {
+    "ip": "1.2.3.4"
+  },
+  "user1": {
+    "user": {
+      "name": "alice"
+    }
+  },
+  "user2": {
+    "user": {
+      "name": "bob"
+    }
+  },
+  "@timestamp": "2025-11-25T08:00:00"
+}
+
+
+
 
 ```
