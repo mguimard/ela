@@ -158,9 +158,8 @@ output {
         index => "NOM_DE_L_INDEX_ICI"
         user => "elastic"
         password => "MDP_USER_ELASTIC"
-        hosts => "localhost"
-        ssl => true
-        ssl_certificate_verification => false
+        hosts => "https://localhost:9200"
+        ssl_verification_mode => "none"
         pipeline => "NOM_DE_LA_PIPELINE_ELASTIC"
     }
 }
