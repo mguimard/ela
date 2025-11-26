@@ -62,6 +62,23 @@ Récupérer le fichier de données (access.log) dans votre répertoire utilisate
 
 Accéder aux écrans de monitoring dans kibana, surveiller l'ingestion.
 
+Exemple de configuration filebeat pour les outputs kibana/elasticsearch : 
+
+```yml
+setup.kibana:
+  host: "localhost:5601"
+
+output.elasticsearch:
+  hosts: ["localhost:9200"]
+  preset: balanced
+  protocol: "https"
+  username: "elastic"
+  password: "TyG_sWRTYP36YGsFUs=+"
+  ssl.verification_mode: "none"
+```
+
+
+
 ## Ajout d'un 4eme noeud elastic
 
 - Ajouter un noeud elastic au cluster
