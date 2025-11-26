@@ -34,6 +34,12 @@ bin/elasticsearch --enrollment-token "eyJ2ZXIi.........."
 
 ## Outils de monitoring
 
+- ajouter une clé de chiffrement dans kibana.yml
+
+```yml
+xpack.encryptedSavedObjects.encryptionKey: skdhbdfhjksdbfklsdbfisdhfusfnulksdfnbisdbfsdbfsdbfuidsb
+```
+
 - Accéder à stack monitoring dans Kibana, relever les différentes métriques
 - Installer https://elasticvue.com/ en extension firefox, ou récupérer la version desktop
 - Connecter ElasticVue au cluster et ouvrir la vue "shards" pour comprendre la répartition des blocs de données.
