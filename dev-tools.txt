@@ -696,6 +696,105 @@ POST mes-super-logs/_doc
 }
 
 
+# Jour 2 - matinée
+
+# creme fraiche 40%
+# creme-fraiche 40 %
+# -> [crem, frai, 40%, laiteri]
+
+# pipelines
+
+POST test/_bulk
+{"index" : {"_id": "12345", "pipeline" : "ma-pipeline"}}
+{"name" :"alice"}
+
+## 
+POST _ingest/pipeline/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "message": "hello 1234 1.1.1.1"
+      }
+    },
+    {
+      "_source": {
+        "message": "TEST 1234"
+      }
+    }
+  ],
+  "pipeline": {
+    "description": "Cette pipeline blablabla",
+    "processors": [
+      {
+        "set": {
+          "field": "tag",
+          "value": "log"
+        }
+      },
+      {
+        "grok": {
+          "field": "message",
+          "patterns": [
+            "%{WORD:my-word}%{SPACE}%{INT:my-number}%{SPACE}%{IP:my-ip}",
+            "%{WORD:my-word}%{SPACE}%{INT:my-number}"
+          ]
+        }
+      },
+      {
+        "geoip": {
+          "field": "my-ip",
+          "if": "ctx.containsKey(\"my-ip\")"
+        }
+      },
+      {
+        "convert" : {
+          "field" : "my-number",
+          "type" : "integer"
+        }
+      },
+      {
+        "script" : {
+          "source" : """
+            ctx['my-number-2'] = ctx['my-number'] * 24;
+            """
+        }
+      }
+    ]
+  }
+}
+
+
+
+
+
+POST _ingest/pipeline/_simulate
+{
+  "docs": [
+    {
+      "_source": {
+        "message": "Alice;23;dev"
+      }
+    }
+  ],
+  "pipeline": {
+    "description": "Cette pipeline blablabla",
+    "processors": [
+      {
+        "csv": {
+          "field": "message",
+          "separator" : ";",
+          "target_fields": [
+            "user", "age", "emploi"
+          ]
+        }
+      }
+    ]
+  }
+}
+
+
+
 
 
 ```
